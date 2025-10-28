@@ -108,10 +108,10 @@ void draw_donor_box(WINDOW *win, DonorResponse* donor, int has_donor, int search
             wattron(win, A_BOLD | COLOR_PAIR(2));
             mvwprintw(win, 2, 2, "DONOR FOUND!");
             wattroff(win, A_BOLD | COLOR_PAIR(2));
-            mvwprintw(win, 4, 2, "Name: %s", donor->name);
-            mvwprintw(win, 5, 2, "Age: %d", donor->age);
-            mvwprintw(win, 6, 2, "Blood Group: %s", donor->blood_group);
-            mvwprintw(win, 8, 2, "Patient is SAFE! Blood transfusion arranged.");
+            mvwprintw(win, 3, 2, "Name: %s", donor->name);
+            mvwprintw(win, 4, 2, "Age: %d", donor->age);
+            mvwprintw(win, 5, 2, "Blood Group: %s", donor->blood_group);
+            mvwprintw(win, 6, 2, "Patient is SAFE! Blood transfusion arranged.");
         } else {
             wattron(win, A_BOLD | COLOR_PAIR(1));
             mvwprintw(win, 2, 2, "DONOR NOT FOUND %ls",w_char);
@@ -199,7 +199,7 @@ int main() {
                 patient_statuses[msg.slot_id].is_critical = msg.is_critical;
                 strcpy(patient_statuses[msg.slot_id].message, msg.message);
             }
-            
+            draw_status_box(status_win, patients, patient_statuses);
             // If critical, search for donor
             if(msg.is_critical && critical_patient_slot != msg.slot_id) {
                 critical_patient_slot = msg.slot_id;
@@ -212,19 +212,45 @@ int main() {
                 donor_response = search_donor(msg.blood_group);
                 searching = 0;
                 has_donor = 1;
-                
-                if(donor_response.found) {
+                draw_donor_box(donor_win, &donor_response, has_donor, searching);
+                /*if(donor_response.found) {
                     // Discharge patient - mark as inactive
                     patients[msg.slot_id].active = 0;
                     patient_reg[msg.slot_id].active = 0;
                     patient_statuses[msg.slot_id].has_status = 0;
                     critical_patient_slot = -1;
-                }
+                }*/
+                
+                if (donor_response.found) {
+		    // Ask user whether to discharge patient
+		    echo(); // Enable user input
+		    curs_set(1); // Show cursor for input
+		    mvwprintw(donor_win, 7, 2, "Remove patient? (y/n): ");
+		    wrefresh(donor_win);
+
+		    char choice = wgetch(donor_win);
+		    noecho();
+		    curs_set(0);
+
+		    if (choice == 'y' || choice == 'Y') {
+			// Discharge patient - mark as inactive
+			patients[msg.slot_id].active = 0;
+			patient_reg[msg.slot_id].active = 0;
+			patient_statuses[msg.slot_id].has_status = 0;
+			critical_patient_slot = -1;
+			mvwprintw(donor_win, 7, 2, "Patient removed successfully.");
+		    } else {
+			mvwprintw(donor_win, 7, 2, "Patient retained. Monitoring continues.");
+			//patient_reg[msg.slot_id].active = 0;
+			patient_statuses[msg.slot_id].has_status = 0;
+			critical_patient_slot = -1;
+		    }
+		    wrefresh(donor_win);
+		}
             }
         }
         
         draw_status_box(status_win, patients, patient_statuses);
-        sleep(1);
         draw_donor_box(donor_win, &donor_response, has_donor, searching);
         
         // Check for 'q' to quit
